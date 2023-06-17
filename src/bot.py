@@ -6,22 +6,24 @@ import toml
 import os 
 import secrets
 import os.path
+from dataclasses import dataclass
 
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher(bot)
-file_name_for_captcha_users = 'check_list.toml'
+users_verification_file = 'check_list.toml'
+folder_of_all_captcha_images = 'captcha_images'
 
 def check_list_is_exist()-> None:
-    if not os.path.isfile(file_name_for_captcha_users):
+    if not os.path.isfile(users_verification_file):
         create_check_list()
 
 def create_check_list()-> None:
     default_data = """
-    title = 'this is a file to store the correct answer for each new member'
-    [users]
+title = 'this is a file to store the correct answer for each new member'
+[users]
     
-    """
+"""
     with open ('check_list.toml','w') as file:
         file.write(default_data)
 
@@ -102,35 +104,65 @@ def create_check_list()-> None:
 async def new_members_handler(message: Message):
     check_list_is_exist()
 
+    @dataclass
+    class Captcha:
+        random_captcha: str
+        answer: str
 
-    new_member = message.new_chat_members[0]
-    id_of_new_member = message.new_chat_members[0].id
+    @dataclass
+    class NewUser:
+        id: str
+        mention: str
 
-    all_images_of_captcha = os.listdir('captcha_images')
-    random_captcha_image = secrets.choice(all_images_of_captcha)
-    captcha_image = open(f'captcha_images/{(random_captcha_image)}','rb') 
-    answer = random_captcha_image.split('.')[0]
+    async def get_random_captcha ()-> str:
+        all_images_of_captcha = os.listdir(folder_of_all_captcha_images)
+        random_captcha_image = secrets.choice(all_images_of_captcha)
+        print(random_captcha_image)
+        return random_captcha_image
+    
+    async def get_captcha_answer(random_captcha) -> str:
+        return  random_captcha.split('.')[0]
+        
+    async def send_random_captcha(captcha: Captcha, new_user: NewUser)-> None:
+        captcha_image = open(f'{folder_of_all_captcha_images}/{(captcha.random_captcha)}','rb') 
+        await message.answer_photo(captcha_image, caption=f"{new_user.mention}\nPlease complete the captcha by typing /answer  and text on the image.\nTime limit: 10 minutes")
 
-    user_id_and_captcha_answer = f"'{id_of_new_member}' = '{answer}'"
+    async def write_id_with_correct_answer(captcha:Captcha, new_user:NewUser )-> None:
+        user_id_and_captcha_answer = f"'{new_user.id}' = '{captcha.answer}'"
+        with open(users_verification_file, "a") as toml_file:
+            toml_file.write(user_id_and_captcha_answer)
 
-    with open(file_name_for_captcha_users, "a") as toml_file:
-        toml_file.write(user_id_and_captcha_answer)
 
-    await message.answer_photo(captcha_image, caption=f"{new_member.mention}\nPlease complete the captcha by typing /answer  and text on the image.\nTime limit: 10 minutes")
+    random_captcha = await get_random_captcha()
+    answer = await get_captcha_answer(random_captcha)
+    print(random_captcha, answer)
+
+    captcha_data = Captcha(random_captcha=random_captcha, answer=answer)
+    user_data = NewUser(id=message.new_chat_members[0].id,mention=message.new_chat_members[0].mention)
+
+    await send_random_captcha(captcha_data, user_data)
+    await write_id_with_correct_answer(captcha_data, user_data)
+
+
+    
 
 @dp.message_handler(commands=['answer'])
 async def new_members_handler(message: Message):
+    
+    @dataclass
+    class User_performing_captcha:
+        id : str
+        answer : str
 
-
-    def answer_is_correct() -> bool:
-        users = toml.load(file_name_for_captcha_users)
-        user_answer = message.text.split()[1]
-        if users['users'][str(message.from_id)] == user_answer:
-            return True
-        else:
-            return False
-        
-    print(answer_is_correct())
+    async def answer_is_correct(user: User_performing_captcha) -> bool:
+        users = toml.load(users_verification_file)
+        print(user.id,user.answer)
+        return users['users'][str(user.id)] == str(user.answer)
+    
+    try:
+        print(await answer_is_correct(User_performing_captcha(id=message.from_id, answer=message.text.split()[1])))
+    except IndexError:
+        await message.reply('You need write message as: \n/answer <captcha code>')
 
 if __name__ == '__main__':
     executor.start_polling(dp, skip_updates=True)
