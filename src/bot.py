@@ -5,10 +5,25 @@ import buttons as bt
 import toml
 import os 
 import secrets
+import os.path
 
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher(bot)
+file_name_for_captcha_users = 'check_list.toml'
+
+def check_list_is_exist()-> None:
+    if not os.path.isfile(file_name_for_captcha_users):
+        create_check_list()
+
+def create_check_list()-> None:
+    default_data = """
+    title = 'this is a file to store the correct answer for each new member'
+    [users]
+    
+    """
+    with open ('check_list.toml','w') as file:
+        file.write(default_data)
 
 # @dp.message_handler(commands=['start', 'help'])
 # async def welcome(message: types.Message):
@@ -85,17 +100,37 @@ dp = Dispatcher(bot)
 
 @dp.message_handler(content_types=[ContentType.NEW_CHAT_MEMBERS])
 async def new_members_handler(message: Message):
-    new_member = message.new_chat_members[0]
+    check_list_is_exist()
 
-    images = os.listdir('captcha_images')
-    captcha_image = secrets.choice(images)
-    answer = captcha_image.split('.')[0]
-    captcha_image = open(f'captcha_images/{(captcha_image)}','rb') 
+
+    new_member = message.new_chat_members[0]
+    id_of_new_member = message.new_chat_members[0].id
+
+    all_images_of_captcha = os.listdir('captcha_images')
+    random_captcha_image = secrets.choice(all_images_of_captcha)
+    captcha_image = open(f'captcha_images/{(random_captcha_image)}','rb') 
+    answer = random_captcha_image.split('.')[0]
+
+    user_id_and_captcha_answer = f"'{id_of_new_member}' = '{answer}'"
+
+    with open(file_name_for_captcha_users, "a") as toml_file:
+        toml_file.write(user_id_and_captcha_answer)
 
     await message.answer_photo(captcha_image, caption=f"{new_member.mention}\nPlease complete the captcha by typing /answer  and text on the image.\nTime limit: 10 minutes")
 
+@dp.message_handler(commands=['answer'])
+async def new_members_handler(message: Message):
 
 
+    def answer_is_correct() -> bool:
+        users = toml.load(file_name_for_captcha_users)
+        user_answer = message.text.split()[1]
+        if users['users'][str(message.from_id)] == user_answer:
+            return True
+        else:
+            return False
+        
+    print(answer_is_correct())
 
 if __name__ == '__main__':
     executor.start_polling(dp, skip_updates=True)
