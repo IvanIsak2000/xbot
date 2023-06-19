@@ -7,29 +7,34 @@ import os
 import secrets
 import os.path
 from dataclasses import dataclass
-
+import logging
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher(bot)
 users_verification_file = 'check_list.toml'
-folder_of_all_captcha_images = 'captcha_images'
+folder_of_all_captchas = 'captcha_images'
+name_of_white_list_file = 'white_list.toml'
+default_data = "title = ''\n[users]"
 
-def check_list_is_exist()-> None:
-    if not os.path.isfile(users_verification_file):
-        create_check_list()
-
-def create_check_list()-> None:
-    default_data = """
-title = 'this is a file to store the correct answer for each new member'
-[users]
+logging.basicConfig(
+    level=logging.INFO,
+    filename="bot.log",
+    filemode="a",
+    format="%(asctime)s %(levelname)s %(message)s")
     
-"""
-    with open ('check_list.toml','w') as file:
-        file.write(default_data)
+if not os.path.isfile(users_verification_file):
+    with open (users_verification_file,'w') as new_file:
+        new_file.write(default_data)
 
+if not os.path.isfile(name_of_white_list_file):
+    with open(name_of_white_list_file,'w') as new_file:
+        new_file.write(default_data)
+
+
+            
 # @dp.message_handler(commands=['start', 'help'])
 # async def welcome(message: types.Message):
-#     await message.reply("Hi!\nI'm captcha bot for Telegram", reply_markup=bt.main_menu)
+#     await message.replyIn the Name of God ("Hi!\nI'm captcha bot for Telegram", reply_markup=bt.main_menu)
 
 # @dp.message_handler(commands=['role'])
 # async def echo(message: types.Message):
@@ -101,9 +106,7 @@ title = 'this is a file to store the correct answer for each new member'
 #     await message.reply(message.chat.id, "Добро пожаловать, {0}!".format(user_name))
 
 @dp.message_handler(content_types=[ContentType.NEW_CHAT_MEMBERS])
-async def new_members_handler(message: Message):
-    check_list_is_exist()
-
+async def get_new_member_and_send_captcha(message: Message):
     @dataclass
     class Captcha:
         captcha: str
@@ -115,15 +118,15 @@ async def new_members_handler(message: Message):
         mention: str
 
     async def get_random_captcha ()-> str:
-        all_images_of_captcha = os.listdir(folder_of_all_captcha_images)
-        random_captcha_image = secrets.choice(all_images_of_captcha)
-        return random_captcha_image
+        all_captchas = os.listdir(folder_of_all_captchas)
+        random_captcha = secrets.choice(all_captchas)
+        return random_captcha
     
     async def get_captcha_answer(random_captcha) -> str:
         return  random_captcha.split('.')[0]
         
     async def send_captcha(captcha: Captcha, new_user: NewUser)-> None:
-        captcha_image = open(f'{folder_of_all_captcha_images}/{(captcha.captcha)}','rb') 
+        captcha_image = open(f'{folder_of_all_captchas}/{(captcha.captcha)}','rb') 
         await message.answer_photo(captcha_image, caption=f"{new_user.mention}\nPlease complete the captcha by typing /answer  and text on the image.\nTime limit: 10 minutes")
 
     async def write_id_with_correct_answer(captcha:Captcha, new_user:NewUser )-> None:
@@ -152,11 +155,22 @@ async def new_members_handler(message: Message):
     async def answer_is_correct(user: User_performing_captcha) -> bool:
         users = toml.load(users_verification_file)
         return users['users'][str(user.id)] == str(user.answer)
-    
+        # except KeyError:
+        #     return logging.error(f'the user: {message.from_user.full_name} {message.from_id} does not need to pass the captcha')
+        # except Exception as err:
+        #     logging.exception(err, exc_info=True)
+
+    async def add_user_in_white_list(id,name):
+        with open('white_list.toml','a') as file:
+            file.write(f"'\n{id}'='{name}'")
     try:
-        print(await answer_is_correct(User_performing_captcha(id=message.from_id, answer=message.text.split()[1])))
+        user_answer = message.text.split()[1]
     except IndexError:
-        await message.reply('You need write message as: \n/answer <captcha code>')
+        await message.reply('You need write message as: \n/answer <captcha code>') 
+      
+    if await answer_is_correct(User_performing_captcha(id=message.from_id, answer=user_answer)):
+        await add_user_in_white_list(message.from_id,message.from_user.full_name)
+        await message.reply('Successful!')
 
 if __name__ == '__main__':
     executor.start_polling(dp, skip_updates=True)
