@@ -1,6 +1,5 @@
 from aiogram import Bot, Dispatcher, executor, types
 from aiogram.types import ContentType, Message
-from config import TOKEN
 import buttons as bt
 import toml
 import os 
@@ -8,6 +7,8 @@ import secrets
 import os.path
 from dataclasses import dataclass
 import logging
+
+from config import TOKEN
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher(bot)
@@ -29,9 +30,7 @@ if not os.path.isfile(users_verification_file):
 if not os.path.isfile(name_of_white_list_file):
     with open(name_of_white_list_file,'w') as new_file:
         new_file.write(default_data)
-
-
-            
+    
 # @dp.message_handler(commands=['start', 'help'])
 # async def welcome(message: types.Message):
 #     await message.replyIn the Name of God ("Hi!\nI'm captcha bot for Telegram", reply_markup=bt.main_menu)
@@ -133,8 +132,7 @@ async def get_new_member_and_send_captcha(message: Message):
         user_id_and_captcha_answer = f"'{new_user.id}' = '{captcha.answer}'"
         with open(users_verification_file, "a") as toml_file:
             toml_file.write(user_id_and_captcha_answer)
-
-
+            
     captcha = await get_random_captcha()
     answer = await get_captcha_answer(captcha)
 
