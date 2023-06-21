@@ -81,9 +81,9 @@ async def new_members_handler(message: Message):
         answer: str
         name: str
 
-    async def answer_is_correct(user: User_performing_captcha) -> bool:
+    async def answer_is_correct(id, answer) -> bool:
         users = toml.load(users_verification_file)
-        return users['users'][str(user.id)] == str(user.answer)
+        return users['users'][str(id)] == str(answer)
 
     try:
         user_answer = message.text.split()[1]
