@@ -29,7 +29,6 @@ logging.basicConfig(
 
 def create_default_file(filename):
     with open(filename, 'w') as new_file:
-        default_data = "title = ''\n[users]"
         new_file.write(default_data)
 
 
