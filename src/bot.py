@@ -3,10 +3,14 @@ import secrets
 import os.path
 from dataclasses import dataclass
 import logging
+from datetime import timedelta 
 
 import toml
 from aiogram import Bot, Dispatcher, executor, types
 from aiogram.types import ContentType, Message
+from aiogram.contrib.fsm_storage.memory import MemoryStorage
+from aiogram.dispatcher import FSMContext
+from aiogram.dispatcher.filters.state import StatesGroup, State
 
 import buttons as bt
 from config import TOKEN
@@ -18,13 +22,19 @@ users_verification_file = 'check_list.toml'
 folder_of_all_captchas = 'captcha_images'
 name_of_white_list_file = 'white_list.toml'
 default_data = "title = ''\n[users]"
-message_for_user = '\nPlease complete the captcha by typing /answer and text on the image.\nTime limit: 10 minutes'
+allowed_time = 60 #in seconds 
+message_to_pass_captcha = f'\nPlease complete the captcha by typing /answer and text on the image.\nTime limit: {allowed_time} seconds'
 
-logging.basicConfig(
-    level=logging.INFO,
-    filename="bot.log",
-    filemode="a",
-    format="%(asctime)s %(levelname)s %(message)s")
+
+# class UserState(StatesGroup):
+#     START_PASS_CAPTCHA = State()
+#     CAPTCHA_PASSED = State()
+
+# logging.basicConfig(
+#     level=logging.INFO,
+#     filename="bot.log",
+#     filemode="a",
+#     format="%(asctime)s %(levelname)s %(message)s")
 
 
 def create_default_file(filename):
@@ -40,7 +50,7 @@ def write_in_file(filename, first_data, second_data):
 
 
 @dp.message_handler(content_types=[ContentType.NEW_CHAT_MEMBERS])
-async def get_new_member_and_send_captcha(message: Message):
+async def get_new_member_and_send_captcha(message: Message, state: FSMContext) -> None:
 
     @dataclass
     class Captcha:
@@ -74,9 +84,9 @@ async def get_new_member_and_send_captcha(message: Message):
     write_in_file(users_verification_file, user.id, captcha.answer)
     await send_captcha(captcha.image, user.mention)
 
-
 @dp.message_handler(commands=['answer'])
-async def new_members_handler(message: Message):
+async def new_members_handler(message: Message, state: FSMContext):
+
 
     @dataclass
     class User_performing_captcha:
