@@ -3,7 +3,7 @@ import secrets
 import os.path
 from dataclasses import dataclass
 import logging
-from datetime import timedelta 
+from datetime import timedelta
 
 import toml
 from aiogram import Bot, Dispatcher, executor, types
@@ -19,7 +19,7 @@ users_verification_file = 'check_list.toml'
 folder_of_all_captchas = 'captcha_images'
 name_of_white_list_file = 'white_list.toml'
 default_data = "title = ''\n"
-allowed_time = 60 # in seconds 
+allowed_time = 60  # in seconds
 message_to_pass_captcha = f'\nPlease complete the captcha by typing /answer and text on the image.\nTime limit: {allowed_time} seconds'
 
 logging.basicConfig(
@@ -34,11 +34,16 @@ def create_default_file(filename) -> None:
         new_file.write(default_data)
 
 
-def write_in_check_list(filename: str, user_id: int, correct_answer: str, message_id: str) -> None:
+def write_in_check_list(
+        filename: str,
+        user_id: int,
+        correct_answer: str,
+        message_id: str) -> None:
     if not os.path.isfile(filename):
         create_default_file(filename)
     with open(filename, 'a') as file:
-        file.write(f"[{user_id}]\ncorrect_answer = '{correct_answer}'\nbot_message_id = '{message_id}'")
+        file.write(
+            f"[{user_id}]\ncorrect_answer = '{correct_answer}'\nbot_message_id = '{message_id}'")
 
 
 def write_in_white_list(filename: str, user_id: int, name: str) -> None:
@@ -78,12 +83,12 @@ async def get_new_member_and_send_captcha(message: Message) -> None:
         '''
         captcha_image = open(f'{folder_of_all_captchas}/{image}', 'rb')
         bot_message = await message.answer_photo(
-            captcha_image, 
+            captcha_image,
             caption=f"{mention} {message_to_pass_captcha}")
         return bot_message['message_id']
 
-    captcha = await get_random_captcha() # 123456.jpg
-    answer = captcha.split('.')[0] # 123456
+    captcha = await get_random_captcha()  # 123456.jpg
+    answer = captcha.split('.')[0]  # 123456
 
     captcha = Captcha(image=captcha, answer=answer)
     user = NewUser(
@@ -91,8 +96,12 @@ async def get_new_member_and_send_captcha(message: Message) -> None:
         mention=message.new_chat_members[0].mention)
 
     message_id = await send_captcha_and_return_message_id(captcha.image, user.mention)
-    write_in_check_list(users_verification_file, user.id, captcha.answer,message_id)
-    
+    write_in_check_list(
+        users_verification_file,
+        user.id,
+        captcha.answer,
+        message_id)
+
 
 @dp.message_handler(commands=['answer'])
 async def check_user_answer(message: Message):
@@ -107,14 +116,13 @@ async def check_user_answer(message: Message):
     try:
         user_answer = message.text.split()[1]
         user = User_performing_captcha(
-        id=message.from_id,
-        name=message.from_user.full_name,
-        answer=user_answer,
-        answer_id=message.message_id)
- 
+            id=message.from_id,
+            name=message.from_user.full_name,
+            answer=user_answer,
+            answer_id=message.message_id)
+
     except IndexError:
         await message.reply('You need write message as: \n/answer <captcha code>')
-
 
     async def answer_is_correct(id, answer) -> bool:
         users = toml.load(users_verification_file)
@@ -138,9 +146,9 @@ async def check_user_answer(message: Message):
         captcha_id = await get_captcha_id(user.id)
         await delete_messages(captcha_id, user.answer_id)
 
-        write_in_white_list(name_of_white_list_file, 
-        user.id, 
-        user.name)
+        write_in_white_list(name_of_white_list_file,
+                            user.id,
+                            user.name)
 
 if __name__ == '__main__':
     executor.start_polling(dp, skip_updates=True)
