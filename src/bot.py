@@ -45,7 +45,7 @@ def write_in_white_list(filename: str, user_id: int, name: str) -> None:
     if not os.path.isfile(filename):
         create_default_file(filename)
     with open(filename, 'a') as file:
-        file.write(f"{user_id} = {name}")
+        file.write(f"'{user_id}' = '{name}'")
 
 
 @dp.message_handler(content_types=[ContentType.NEW_CHAT_MEMBERS])
